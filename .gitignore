@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+save/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+dataset/AstramBengaluru/
+*.log
