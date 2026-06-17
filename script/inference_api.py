@@ -68,6 +68,7 @@ if __name__ == "__main__":
     # Test block to verify LiveInferenceAPI works with MockTrafficStream
     import time
     from script.mock_stream import MockTrafficStream
+    from script.traffic_metrics import TrafficMetrics
     
     # Example checkpoint (update if a different model is trained)
     ckpt_path = "save/STIDEF_AstramBengaluru/22072b82a2/seed_0/checkpoints/epoch=0-step=492.ckpt"
@@ -75,6 +76,7 @@ if __name__ == "__main__":
     try:
         api = LiveInferenceAPI(ckpt_path)
         stream = MockTrafficStream()
+        metrics_engine = TrafficMetrics(v_free=50.0)
         
         print("\n--- Running Live Inference Test ---")
         for i in range(2):
@@ -91,9 +93,16 @@ if __name__ == "__main__":
             print(f"  Output Shape: {prediction.shape} (pred_len, nodes)")
             print(f"  Inference Latency: {latency:.2f} ms")
             
-            # Check if prediction is in valid range (e.g. realistic km/h)
+            # Calculate and print metrics
+            severity, delay = metrics_engine.calculate_metrics(prediction)
+            
             avg_speed = prediction.mean()
-            print(f"  Average Forecasted Speed: {avg_speed:.2f} km/h\n")
+            max_severity = severity.max()
+            max_delay = delay.max()
+            
+            print(f"  Average Forecasted Speed: {avg_speed:.2f} km/h")
+            print(f"  Max Congestion Severity:  {max_severity:.1f}%")
+            print(f"  Max Expected Delay:       {max_delay:.1f} mins\n")
             
     except FileNotFoundError as e:
         print(f"\nSkipping test: {e}\nPlease train the model first or provide a valid checkpoint.")
