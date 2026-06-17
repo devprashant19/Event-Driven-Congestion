@@ -22,35 +22,45 @@ st.set_page_config(
 st.markdown("""
 <style>
     .reportview-container {
-        background: #0e1117;
+        background: #0b0f19;
     }
     .metric-card {
-        background-color: #1e293b;
-        border: 1px solid #334155;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         text-align: center;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
+        transition: transform 0.2s ease-in-out;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+        border: 1px solid rgba(0, 191, 255, 0.5);
     }
     .metric-title {
         color: #94a3b8;
         font-size: 14px;
-        font-weight: 500;
-        margin-bottom: 5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
     }
     .metric-value {
         color: #f8fafc;
-        font-size: 28px;
-        font-weight: 700;
+        font-size: 32px;
+        font-weight: 800;
+        text-shadow: 0 0 10px rgba(255,255,255,0.1);
     }
     .delta-positive {
-        color: #10b981 !important;
-        font-weight: 600;
+        color: #00ffaa !important;
+        text-shadow: 0 0 10px rgba(0,255,170,0.3);
     }
     .delta-negative {
-        color: #ef4444 !important;
-        font-weight: 600;
+        color: #ff3366 !important;
+        text-shadow: 0 0 10px rgba(255,51,102,0.3);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -89,46 +99,53 @@ st.markdown("### Zero-Gravity Mission Control Traffic Decision Support System")
 st.write("Refactoring spatial-temporal traffic pipelines with dynamic graph topologies, time-dependent routing, and continuous synthetic baselines.")
 
 # ----------------- SIDEBAR CONTROLS -----------------
-st.sidebar.header("🛠️ Policy Simulator Controls")
+st.sidebar.title("🕹️ Mission Control Toolkit")
 
-# Sliders for police and barricades
-officers = st.sidebar.slider("👮 Deploy Police Personnel", min_value=0, max_value=50, value=10, step=1)
-barricades = st.sidebar.slider("🚧 Deploy Barricades", min_value=0, max_value=20, value=4, step=1)
+with st.sidebar.expander("🛠️ Policy Simulator Controls", expanded=True):
+    officers = st.slider("👮 Deploy Police Personnel", min_value=0, max_value=50, value=10, step=1)
+    barricades = st.slider("🚧 Deploy Barricades", min_value=0, max_value=20, value=4, step=1)
 
-st.sidebar.markdown("---")
-st.sidebar.header("🚨 Simulate An Anomaly Event")
-
-sim_corridor = st.sidebar.selectbox("Select Target Corridor", CORRIDORS)
-sim_cause = st.sidebar.selectbox("Event Cause", ["Political Rally", "Festival", "Sports Match", "Construction", "Vehicle Breakdown", "Accident"])
-sim_severity = st.sidebar.select_slider("Incident Severity", options=["Low", "Medium", "High"])
-road_closure = st.sidebar.checkbox("Requires Full Road Closure")
-
-# Map text severity to numeric
-severity_map = {"Low": 0.3, "Medium": 0.6, "High": 1.0}
-
-sim_start_time = st.sidebar.slider("Start Time (Future 10-min steps)", min_value=0, max_value=11, value=0, step=1)
-
-if st.sidebar.button("➕ Add Event to Scenario"):
-    severity_val = severity_map[sim_severity]
-    if road_closure:
-        severity_val = min(1.0, severity_val + 0.3)
+with st.sidebar.expander("🚨 Simulate An Anomaly Event", expanded=True):
+    sim_corridor = st.selectbox("Select Target Corridor", CORRIDORS)
+    sim_cause = st.selectbox("Event Cause", ["Political Rally", "Festival", "Sports Match", "Construction", "Vehicle Breakdown", "Accident"])
+    sim_severity = st.select_slider("Incident Severity", options=["Low", "Medium", "High"])
+    road_closure = st.checkbox("Requires Full Road Closure")
     
-    st.session_state.scenario_events.append({
-        "corridor": sim_corridor,
-        "c_idx": corridor_to_idx[sim_corridor],
-        "start_step": sim_start_time,
-        "severity": severity_val,
-        "cause": sim_cause
-    })
-    st.sidebar.success(f"Added {sim_cause} on {sim_corridor} (T+{sim_start_time})!")
+    # Map text severity to numeric
+    severity_map = {"Low": 0.3, "Medium": 0.6, "High": 1.0}
+    
+    sim_start_time = st.slider("Start Time (Future 10-min steps)", min_value=0, max_value=11, value=0, step=1)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("➕ Add Event"):
+            severity_val = severity_map[sim_severity]
+            if road_closure:
+                severity_val = min(1.0, severity_val + 0.3)
+            
+            st.session_state.scenario_events.append({
+                "corridor": sim_corridor,
+                "c_idx": corridor_to_idx[sim_corridor],
+                "start_step": sim_start_time,
+                "severity": severity_val,
+                "cause": sim_cause
+            })
+            st.success(f"Added T+{sim_start_time}")
+            
+    with col2:
+        if st.button("🔄 Clear"):
+            st.session_state.scenario_events = []
+            st.session_state.simulated_speeds = None
+            st.session_state.simulated_adj = None
+            if 'optimal_allocation' in st.session_state:
+                st.session_state.optimal_allocation = {}
+            st.info("Cleared.")
 
-if st.sidebar.button("🔄 Clear Scenario"):
-    st.session_state.scenario_events = []
-    st.session_state.simulated_speeds = None
-    st.session_state.simulated_adj = None
-    if 'optimal_allocation' in st.session_state:
-        st.session_state.optimal_allocation = {}
-    st.sidebar.info("Scenario timeline cleared.")
+with st.sidebar.expander("🧭 Time-Dependent Route Planner", expanded=False):
+    origin = st.selectbox("Origin Corridor", CORRIDORS, index=0)
+    destination = st.selectbox("Destination Corridor", CORRIDORS, index=10)
+    start_idx = corridor_to_idx[origin]
+    target_idx = corridor_to_idx[destination]
 
 # Load AI Engines
 import sys
@@ -272,13 +289,6 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
-    st.sidebar.markdown("---")
-    st.sidebar.header("🧭 Route Planner")
-    origin = st.sidebar.selectbox("Origin Corridor", CORRIDORS, index=0)
-    destination = st.sidebar.selectbox("Destination Corridor", CORRIDORS, index=10)
-    start_idx = corridor_to_idx[origin]
-    target_idx = corridor_to_idx[destination]
-
     # Calculate multiple diverse diversion routes
     paths_mit = graph_mit.solve_k_shortest_tdsp(start_idx, target_idx, selected_t * 10.0, speeds_mit, k=3)
 
@@ -290,7 +300,8 @@ with tab1:
         infra_plan = None
 
     # ----------------- GEOSPATIAL MAP VIEW & LAYOUT -----------------
-    map_col, route_col = st.columns([2, 1])
+    st.divider()
+    map_col, route_col = st.columns([3, 1])
 
     with map_col:
         st.subheader("🗺️ Dynamic Network Topology Map")
@@ -477,19 +488,32 @@ with tab1:
         else:
             st.error("No path found between selected nodes.")
 
-        # Status Board of Injected Incident
-        st.markdown("---")
-        st.markdown("#### Event Status Board")
+    # ----------------- BOTTOM ROW CARDS -----------------
+    st.divider()
+    st.subheader("⚡ Active Operation Status")
+    info_col1, info_col2, info_col3 = st.columns(3)
+    
+    with info_col1:
+        st.markdown("#### 🚨 Event Status Board")
         if len(st.session_state.scenario_events) > 0:
             for evt in st.session_state.scenario_events:
-                st.error(f"⚠️ **ACTIVE EVENT**: {evt['cause']} at **T+{evt['start_step']} steps**")
-                st.markdown(f"- **Location**: {evt['corridor']}")
-                st.markdown(f"- **Severity Level**: {evt['severity']:.2f}")
+                st.error(f"⚠️ **ACTIVE**: {evt['cause']} at **T+{evt['start_step']} steps**\n\n**📍 {evt['corridor']}** (Severity: {evt['severity']:.2f})")
         else:
             st.success("🟢 **SYSTEM NORMAL**: No active events.")
-
-        st.markdown("---")
-        st.markdown("#### 👮 Optimal Resource Deployment Roster")
+            
+        st.markdown("#### 📡 AI Network Alerts")
+        severity_mit, delay_mit = metrics.calculate_metrics(speeds_mit)
+        live_severity = severity_mit[selected_t]
+        
+        anomalies = anomaly_detector.detect_unplanned_events(live_severity, active_planned_events=[])
+        if anomalies:
+            for c_idx, sev in anomalies:
+                st.warning(f"🚨 **UNPLANNED ANOMALY**: {CORRIDORS[c_idx]} ({sev:.1f}%)")
+        else:
+            st.info("✅ No Unplanned Anomalies Detected.")
+    
+    with info_col2:
+        st.markdown("#### 👮 Optimal Deployment Roster")
         if len(st.session_state.scenario_events) > 0 and sum(st.session_state.optimal_allocation.values()) > 0:
             alloc = st.session_state.optimal_allocation
             st.markdown(f"**Total Officers Deployed**: {sum(alloc.values())}")
@@ -499,45 +523,32 @@ with tab1:
             st.warning("No officers deployed. Use the sidebar slider to allocate resources.")
         else:
             st.write("Awaiting event injection...")
-
-        st.markdown("---")
+    
+    with info_col3:
         st.markdown("#### 🚧 Infrastructure Action Plan")
         if infra_plan:
             if infra_plan["barricades"]:
                 st.markdown("**⛔ Access Restrictions (Barricades)**:")
                 for n_idx, count in infra_plan["barricades"]:
-                    st.error(f"Deploy **{count} barricades** at intersection with **{CORRIDORS[n_idx]}** to choke spillover.")
+                    st.error(f"Deploy **{count} barricades** at **{CORRIDORS[n_idx]}**.")
             else:
-                st.info("No barricades deployed. Use the slider to restrict access.")
-
+                st.info("No barricades deployed.")
+                
             if infra_plan["signals"]:
-                st.markdown("**🚦 Signal Timing Overrides (Green Phase Extensions)**:")
+                st.markdown("**🚦 Signal Overrides (+30s Green Phase)**:")
                 signal_corridors = [f"**{CORRIDORS[n]}**" for n in infra_plan["signals"]]
-                st.success(f"Extend green phase by +30s on: {', '.join(signal_corridors)}")
+                st.success(f"{', '.join(signal_corridors)}")
         else:
             st.write("Awaiting event injection...")
-
-        st.markdown("---")
-        st.markdown("#### AI Intelligence & Alerts")
-
-        severity_mit, delay_mit = metrics.calculate_metrics(speeds_mit)
-        live_severity = severity_mit[selected_t]
-
-        anomalies = anomaly_detector.detect_unplanned_events(live_severity, active_planned_events=[])
-        if anomalies:
-            for c_idx, sev in anomalies:
-                st.warning(f"🚨 **UNPLANNED ANOMALY**: {CORRIDORS[c_idx]} ({sev:.1f}% severity)")
-        else:
-            st.info("✅ No Unplanned Anomalies Detected.")
-
-        if len(st.session_state.scenario_events) > 0:
-            for evt in st.session_state.scenario_events:
-                evt_c_idx = evt["c_idx"]
-                impacts = anomaly_detector.calculate_impact_radius(severity_mit, origin_corridors=[evt_c_idx])
-                if impacts:
-                    st.markdown(f"**Predicted Impact Radius (Spillover from {evt['corridor']}):**")
-                    for c_idx, sev in impacts:
-                        st.error(f"⚠️ {CORRIDORS[c_idx]} (Max {sev:.1f}% severity)")
+    
+    if len(st.session_state.scenario_events) > 0:
+        for evt in st.session_state.scenario_events:
+            evt_c_idx = evt["c_idx"]
+            impacts = anomaly_detector.calculate_impact_radius(severity_mit, origin_corridors=[evt_c_idx])
+            if impacts:
+                st.markdown(f"**Predicted Impact Radius (Spillover from {evt['corridor']}):**")
+                for c_idx, sev in impacts:
+                    st.error(f"⚠️ {CORRIDORS[c_idx]} (Max {sev:.1f}% severity)")
 
 with tab2:
     st.header("📊 Post-Event Analysis & AI Learning Loop")
