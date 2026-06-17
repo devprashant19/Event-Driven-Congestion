@@ -69,6 +69,8 @@ if __name__ == "__main__":
     import time
     from script.mock_stream import MockTrafficStream
     from script.traffic_metrics import TrafficMetrics
+    from script.anomaly_detector import AnomalyDetector
+    from recommendation_engine import CORRIDORS
     
     # Example checkpoint (update if a different model is trained)
     ckpt_path = "save/STIDEF_AstramBengaluru/22072b82a2/seed_0/checkpoints/epoch=0-step=492.ckpt"
@@ -77,6 +79,7 @@ if __name__ == "__main__":
         api = LiveInferenceAPI(ckpt_path)
         stream = MockTrafficStream()
         metrics_engine = TrafficMetrics(v_free=50.0)
+        anomaly_engine = AnomalyDetector()
         
         print("\n--- Running Live Inference Test ---")
         for i in range(2):
@@ -102,7 +105,30 @@ if __name__ == "__main__":
             
             print(f"  Average Forecasted Speed: {avg_speed:.2f} km/h")
             print(f"  Max Congestion Severity:  {max_severity:.1f}%")
-            print(f"  Max Expected Delay:       {max_delay:.1f} mins\n")
+            print(f"  Max Expected Delay:       {max_delay:.1f} mins")
+            
+            # For testing, let's inject a fake severe crash on Corridor 5 (ORR West 1)
+            # We assume it's NOT a planned event
+            fake_live_severity = severity[0].copy()
+            fake_live_severity[5] = 60.0  # Huge traffic jam just started
+            
+            anomalies = anomaly_engine.detect_unplanned_events(fake_live_severity, active_planned_events=[])
+            if anomalies:
+                print(f"  🚨 ALERTS:")
+                for c_idx, sev in anomalies:
+                    print(f"    - Unplanned Incident detected on {CORRIDORS[c_idx]} ({sev:.1f}% severity)")
+                    
+            # Let's say the model successfully predicted this crash would spill over to neighbors
+            fake_forecast_sev = severity.copy()
+            fake_forecast_sev[:, 5] = 60.0
+            fake_forecast_sev[3:, 4] = 40.0 # Spills over 3 timesteps later
+            
+            impacts = anomaly_engine.calculate_impact_radius(fake_forecast_sev, origin_corridors=[5])
+            if impacts:
+                print(f"  ⚠️ IMPACT RADIUS:")
+                for c_idx, sev in impacts:
+                    print(f"    - Will spill over to {CORRIDORS[c_idx]} (Max {sev:.1f}% severity)")
+            print("\n")
             
     except FileNotFoundError as e:
         print(f"\nSkipping test: {e}\nPlease train the model first or provide a valid checkpoint.")
