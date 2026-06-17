@@ -61,22 +61,31 @@ class TrafficDataPipeline:
         self.V_final = None
 
     def build_static_graph(self):
-        print("Building static graph topology...")
+        print("Building static graph topology using Gaussian Distance Kernel...")
         self.A_static = np.zeros((N, N), dtype=np.float32)
+        
+        # Calculate pairwise geographical distances
+        dist_matrix = np.zeros((N, N), dtype=np.float32)
         for i in range(N):
-            distances = []
             lat1, lon1 = COORDS[CORRIDORS[i]]
             for j in range(N):
-                if i == j:
-                    continue
                 lat2, lon2 = COORDS[CORRIDORS[j]]
+                # simple Euclidean distance of lat/lon
                 dist = np.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
-                distances.append((dist, j))
-            
-            distances.sort()
-            for _, j in distances[:3]:
-                self.A_static[i, j] = 1.0
-                self.A_static[j, i] = 1.0
+                dist_matrix[i, j] = dist
+                
+        # Calculate standard deviation of distances for the kernel
+        distances = dist_matrix[~np.eye(dist_matrix.shape[0], dtype=bool)]
+        std_dist = distances.std()
+        
+        # Apply Gaussian Kernel: W_ij = exp(- (dist_ij^2 / std_dist^2))
+        for i in range(N):
+            for j in range(N):
+                if i != j:
+                    weight = np.exp(- (dist_matrix[i, j] ** 2) / (std_dist ** 2))
+                    # Thresholding to create a sparse graph
+                    if weight >= 0.1:
+                        self.A_static[i, j] = weight
         return self.A_static
 
     def generate_synthetic_baseline(self):
