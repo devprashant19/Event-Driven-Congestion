@@ -1,0 +1,9 @@
+streamlit==1.36.0
+pydeck==0.9.1
+pandas
+numpy
+torch>=2.0.0
+pytorch-lightning
+networkx
+scikit-learn
+pyyaml
