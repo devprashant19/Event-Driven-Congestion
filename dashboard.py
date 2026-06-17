@@ -363,21 +363,32 @@ with route_col:
     start_idx = corridor_to_idx[origin]
     target_idx = corridor_to_idx[destination]
 
-    # Calculate routes
-    path_unmit, time_unmit = graph_unmit.solve_tdsp(start_idx, target_idx, selected_t * 10.0, speeds_unmit)
-    path_mit, time_mit = graph_mit.solve_tdsp(start_idx, target_idx, selected_t * 10.0, speeds_mit)
+    # Calculate multiple diverse diversion routes
+    paths_mit = graph_mit.solve_k_shortest_tdsp(start_idx, target_idx, selected_t * 10.0, speeds_mit, k=3)
 
-    st.markdown("#### Dynamic Routing Results:")
-    if path_mit:
-        st.markdown(f"**Route**: **{' ➔ '.join([CORRIDORS[n] for n in path_mit])}**")
-        st.markdown(f"⏱️ **Traversing Duration**: `{time_mit:.1f} minutes`")
-        
-        # Policy impact evaluation card
-        diff = time_unmit - time_mit
-        if diff > 0.5:
-            st.success(f"🎉 Intervention saves **{diff:.1f} minutes** on this path!")
-        else:
-            st.info("Alternative route clear under current deployment.")
+    st.markdown("#### 🚦 Dynamic Diversion Plans")
+    if paths_mit:
+        for i, (path, travel_time) in enumerate(paths_mit):
+            plan_name = ["Plan A (Primary)", "Plan B (Alternate)", "Plan C (Fallback)"][i]
+            with st.expander(f"🛣️ {plan_name} - {travel_time:.1f} mins", expanded=(i==0)):
+                st.markdown(f"**Path**: {' ➔ '.join([CORRIDORS[n] for n in path])}")
+                st.markdown(f"**Predicted Travel Time**: `{travel_time:.1f} minutes`")
+                
+                # We can also calculate what this specific path's time would have been without intervention
+                time_unmit_baseline = 0
+                arr = selected_t * 10.0
+                for j in range(len(path)-1):
+                    v = path[j+1]
+                    step_idx = int(arr // 10)
+                    tt = graph_unmit.get_travel_time(v, speeds_unmit, step_idx)
+                    arr += tt
+                    time_unmit_baseline += tt
+                
+                diff = time_unmit_baseline - travel_time
+                if diff > 0.5:
+                    st.success(f"🎉 Police/Barricade intervention saves **{diff:.1f} mins** on this specific route!")
+                else:
+                    st.info("This route is relatively unaffected by the current bottleneck.")
     else:
         st.error("No path found between selected nodes.")
 

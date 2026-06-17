@@ -89,12 +89,16 @@ class TDSPGraph:
         # Traversal time in minutes: (Length in km / Speed in km/h) * 60
         return (self.lengths[corridor_idx] / speed) * 60.0
 
-    def solve_tdsp(self, start_idx, target_idx, departure_time, speed_profile):
+    def solve_tdsp(self, start_idx, target_idx, departure_time, speed_profile, edge_penalties=None):
         """
         Time-Dependent Dijkstra Shortest Path Solver.
         departure_time: time in minutes from the start of forecast horizon.
         speed_profile: array of shape (L_horizon, N) containing forecasted speeds.
+        edge_penalties: dict of (u, v) -> penalty_multiplier for diverse routing.
         """
+        if edge_penalties is None:
+            edge_penalties = {}
+            
         # pq elements: (arrival_time, current_node, path_taken)
         pq = [(departure_time, start_idx, [start_idx])]
         best_arrival = {i: float('inf') for i in range(self.N)}
@@ -115,6 +119,11 @@ class TDSPGraph:
                 # 10-minute step index based on current arrival time
                 step_idx = int(arr_time // 10)
                 travel_time = self.get_travel_time(v, speed_profile, step_idx)
+                
+                # Apply penalty for K-shortest paths diversity
+                penalty = edge_penalties.get((u, v), 1.0)
+                travel_time *= penalty
+                
                 new_arrival = arr_time + travel_time
 
                 if new_arrival < best_arrival[v]:
@@ -122,6 +131,29 @@ class TDSPGraph:
                     heapq.heappush(pq, (new_arrival, v, path + [v]))
 
         return [], float('inf')
+
+    def solve_k_shortest_tdsp(self, start_idx, target_idx, departure_time, speed_profile, k=3):
+        """
+        Generates K geographically diverse alternate routes using iterative edge penalization.
+        """
+        paths = []
+        edge_penalties = {}
+        
+        for i in range(k):
+            path, travel_time = self.solve_tdsp(start_idx, target_idx, departure_time, speed_profile, edge_penalties)
+            if not path or travel_time == float('inf'):
+                break
+                
+            paths.append((path, travel_time))
+            
+            # Penalize edges in the found path to force diversity in the next iteration
+            for j in range(len(path) - 1):
+                u, v = path[j], path[j+1]
+                # Increase penalty by 2.0 (100% time increase) to heavily discourage reuse
+                current_penalty = edge_penalties.get((u, v), 1.0)
+                edge_penalties[(u, v)] = current_penalty * 2.0
+                
+        return paths
 
 
 class PolicySimulator:
@@ -242,13 +274,14 @@ def test_recommendation_engine():
     # Let's say corridor 10 ('Hosur Road') drops to 8 km/h at step 3
     mock_speeds[3:, 10] = 8.0
 
-    print("Running Time-Dependent Shortest Path Query...")
-    # Find shortest path from CBD 1 (index 17) to Hosur Road (index 10) starting at time 0 minutes
-    path, travel_time = graph.solve_tdsp(17, 10, 0.0, mock_speeds)
+    print("Running K-Shortest Path Query (K=3)...")
+    # Find 3 diverse shortest paths from CBD 1 (index 17) to Hosur Road (index 10) starting at time 0 minutes
+    paths = graph.solve_k_shortest_tdsp(17, 10, 0.0, mock_speeds, k=3)
     print(f"Start node: CBD 1 (17)")
     print(f"End node: Hosur Road (10)")
-    print(f"Path: {[CORRIDORS[node] for node in path]}")
-    print(f"Travel Time: {travel_time:.2f} mins")
+    for i, (path, travel_time) in enumerate(paths):
+        print(f"Path {i+1}: {[CORRIDORS[node] for node in path]}")
+        print(f"  Travel Time: {travel_time:.2f} mins")
 
     # 2. Test Policy Simulator
     sim = PolicySimulator(static_adj_path, scaler_path)
