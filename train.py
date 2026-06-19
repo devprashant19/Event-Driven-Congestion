@@ -120,8 +120,8 @@ def train_func(hyper_conf, conf):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str)
-    parser.add_argument("-d", "--data_root", default="/data3/smilehan/projects/GAME/dataset", type=str, help="data root")
-    parser.add_argument("-s", "--save_root", default="/data3/smilehan/projects/GAME/save", help="save root")
+    parser.add_argument("-d", "--data_root", default="dataset", type=str, help="data root")
+    parser.add_argument("-s", "--save_root", default="save", help="save root")
     parser.add_argument("--devices", default='0,', type=str, help="The devices to use, detail rules is show in README")
     parser.add_argument("--use_wandb", default=0, type=int, help="use wandb")
     parser.add_argument("--seed", type=int, default=0, help="seed")

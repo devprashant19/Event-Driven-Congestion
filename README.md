@@ -88,7 +88,7 @@ A fully operational, AI-driven traffic decision support system built for Bengalu
 5. **Train the AI Model**
    Run the PyTorch Lightning trainer to establish your baseline checkpoint. The configuration handles spatial-temporal deep learning optimization automatically.
    ```bash
-   python train.py -c config/ASTRAM/STIDEF.py
+   python train.py -c config/AstramBengaluru/STIDEF.py
    ```
 
 6. **Launch the Mission Control Dashboard**
