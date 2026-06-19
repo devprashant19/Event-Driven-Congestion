@@ -43,6 +43,34 @@ class TrafficMetrics:
         
         return severity, delay
 
+    def calculate_queue_length(self, v_forecast, lanes=2):
+        """
+        Calculates physical queue length (km) and number of queued vehicles.
+        Based on traffic flow jam density assumptions.
+        
+        Args:
+            v_forecast: numpy array of predicted speeds.
+            lanes: assumed average number of lanes per corridor.
+            
+        Returns:
+            queue_km: array of queue lengths in kilometers.
+            queue_vehicles: array of total vehicles trapped in queue.
+        """
+        # Typical jam density: 140 vehicles per km per lane
+        jam_density = 140 * lanes
+        
+        # Calculate severity ratio (0.0 to 1.0) where 1.0 is a complete standstill
+        v_f = np.maximum(v_forecast, 1.0)
+        severity_ratio = np.clip((self.v_free - v_f) / self.v_free, 0.0, 1.0)
+        
+        # Estimate queue physical length (assume congestion linearly occupies corridor length)
+        queue_km = severity_ratio * self.lengths
+        
+        # Estimate vehicle count in queue
+        queue_vehicles = queue_km * jam_density
+        
+        return queue_km, queue_vehicles
+
 if __name__ == "__main__":
     # Quick unit test
     metrics = TrafficMetrics(v_free=50.0)

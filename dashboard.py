@@ -247,7 +247,7 @@ with tab1:
     current_speeds = speeds_mit[selected_t]
 
     # ----------------- METRIC CARDS ROW -----------------
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     # Calculate Delays for OD Pairs to compute Delta
     od_pairs = [
@@ -305,6 +305,17 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
+    _, queue_veh_mit = metrics.calculate_queue_length(current_speeds)
+    total_queue_vehicles = queue_veh_mit.sum()
+
+    with col5:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">Total Queued Vehicles</div>
+            <div class="metric-value" style="color: #FF5722;">{total_queue_vehicles:.0f} Veh</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     # Calculate multiple diverse diversion routes
     paths_mit = graph_mit.solve_k_shortest_tdsp(start_idx, target_idx, selected_t * 10.0, speeds_mit, k=3)
 
@@ -343,10 +354,15 @@ with tab1:
                         radius = 800  # Expand radius to represent the incident node
                         break
 
+            # Calculate queue info for tooltip
+            q_km, q_veh = metrics.calculate_queue_length(np.array([speed]))
+            queue_info = f"{q_veh[0]:.0f} vehicles ({q_km[0]:.1f} km)"
+
             nodes_data.append({
                 "name": name,
                 "coordinates": [lon, lat],
                 "speed": speed,
+                "queue_info": queue_info,
                 "color": color,
                 "radius": radius
             })
@@ -467,7 +483,7 @@ with tab1:
         deck = pdk.Deck(
             layers=layers_list,
             initial_view_state=view_state,
-            tooltip={"text": "{name}\nPredicted Speed: {speed:.1f} km/h"}
+            tooltip={"html": "<b>{name}</b><br/>Predicted Speed: {speed:.1f} km/h<br/>Queue: {queue_info}"}
         )
         st.pydeck_chart(deck)
 
