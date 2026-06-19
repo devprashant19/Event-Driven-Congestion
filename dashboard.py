@@ -190,6 +190,30 @@ if st.sidebar.button("⏩ Fetch Next Live Frame"):
     st.session_state.current_step = step
     st.sidebar.success(f"Fetched live traffic frame (step {step})")
 
+    # --- AUTO-MITIGATION LOOP ---
+    from recommendation_engine import CORRIDORS
+    # 1. Get Live Speeds (first time step)
+    speeds_live = api.predict(var_x, marker_x)[0]
+    
+    # 2. Calculate Severity
+    live_severity, _ = metrics.calculate_metrics(speeds_live)
+    
+    # 3. Detect Anomalies (exclude currently planned events)
+    active_nodes = [evt["c_idx"] for evt in st.session_state.scenario_events]
+    anomalies = anomaly_detector.detect_unplanned_events(live_severity, active_planned_events=active_nodes)
+    
+    # 4. Auto-Inject Events
+    if anomalies:
+        for c_idx, sev in anomalies:
+            st.session_state.scenario_events.append({
+                "c_idx": c_idx,
+                "severity": sev / 100.0,
+                "start_step": 0,
+                "duration": 6,
+                "desc": f"Auto-Detected Unplanned Event ({sev:.1f}% Severity)"
+            })
+            st.sidebar.error(f"🚨 UNPLANNED EVENT DETECTED ON {CORRIDORS[c_idx]}! Auto-mitigation plan generated.")
+
 # Apply policy simulation via AI
 if len(st.session_state.scenario_events) > 0:
     crash_marker_x = marker_x.copy()
