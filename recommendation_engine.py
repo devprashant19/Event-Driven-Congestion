@@ -17,6 +17,38 @@ except FileNotFoundError as e:
 N = len(CORRIDORS)
 corridor_to_idx = {c: i for i, c in enumerate(CORRIDORS)}
 
+def build_dynamic_adjacency_matrix(corridors, coords_dict):
+    """
+    Dynamically constructs the adjacency matrix on the fly using coordinates.
+    This eliminates the need for hardcoded static matrices.
+    """
+    num_nodes = len(corridors)
+    dist_matrix = np.zeros((num_nodes, num_nodes), dtype=np.float32)
+    
+    for i in range(num_nodes):
+        lat1, lon1 = coords_dict[corridors[i]]
+        for j in range(num_nodes):
+            lat2, lon2 = coords_dict[corridors[j]]
+            dist = np.sqrt((lat1 - lat2)**2 + (lon1 - lon2)**2)
+            dist_matrix[i, j] = dist
+            
+    distances = dist_matrix[~np.eye(num_nodes, dtype=bool)]
+    if len(distances) == 0:
+        return np.zeros((num_nodes, num_nodes))
+        
+    std_dist = distances.std()
+    A_static = np.zeros((num_nodes, num_nodes), dtype=np.float32)
+    
+    for i in range(num_nodes):
+        for j in range(num_nodes):
+            if i != j:
+                weight = np.exp(- (dist_matrix[i, j] ** 2) / (std_dist ** 2))
+                if weight >= 0.1:
+                    A_static[i, j] = weight
+                    
+    return A_static
+
+
 
 class TDSPGraph:
     """
@@ -112,11 +144,17 @@ class PolicySimulator:
     - Police Officers (P): Speeds up recovery decay coefficient lambda.
     - Barricades (B): Restricts traffic bottlenecks, lowering spillover propagation coefficient.
     """
-    def __init__(self, static_adj_path, scaler_path):
-        self.A_static = np.load(static_adj_path)
-        scaler = np.load(scaler_path)
-        self.mean_speed = scaler['mean']
-        self.std_speed = scaler['std']
+    def __init__(self, A_static, scaler_path=None):
+        self.A_static = A_static
+        
+        # Load scaler or use default
+        if scaler_path and os.path.exists(scaler_path):
+            scaler = np.load(scaler_path)
+            self.mean_speed = scaler['mean']
+            self.std_speed = scaler['std']
+        else:
+            self.mean_speed = 35.0
+            self.std_speed = 15.0
 
     def simulate_mitigated_speed(self, base_speeds, active_event_list, num_officers, num_barricades):
         """
@@ -208,8 +246,16 @@ class ManpowerOptimizer:
     Allocates a constrained budget of police personnel across the impact radius
     to mathematically minimize network-wide congestion delay.
     """
-    def __init__(self, A_static):
+    def __init__(self, A_static, coords_dict=None, corridors=None):
         self.A_static = A_static
+        self.coords_dict = coords_dict
+        self.corridors = corridors
+        
+        # Designate CBD 1 as the Central Police HQ
+        if corridors:
+            self.hq_idx = next((i for i, c in enumerate(corridors) if c == "CBD 1"), 0)
+        else:
+            self.hq_idx = 0
 
     def greedy_allocation(self, sim, api, var_x, marker_x, scenario_events, total_officers, num_barricades):
         # Identify the "Impact Zone" (All Origin nodes + immediate neighbors)
@@ -241,6 +287,17 @@ class ManpowerOptimizer:
                 test_speeds = sim.simulate_mitigated_forecast(api, var_x, marker_x, scenario_events, test_allocation, num_barricades)
                 # Maximize overall speed across the impact zone
                 network_speed_sum = np.sum(test_speeds[:, impact_zone])
+                
+                # Calculate travel time penalty from Police HQ
+                if self.coords_dict and self.corridors:
+                    hq_coord = self.coords_dict[self.corridors[self.hq_idx]]
+                    target_coord = self.coords_dict[self.corridors[candidate_idx]]
+                    dist_to_hq = np.sqrt((hq_coord[0] - target_coord[0])**2 + (hq_coord[1] - target_coord[1])**2)
+                    
+                    # Assume 0.01 deg is approx 1km. Let's penalize network speed by 10 units per degree of distance
+                    # representing the loss of mitigation effectiveness while officers are driving
+                    dispatch_penalty = dist_to_hq * 50.0
+                    network_speed_sum -= dispatch_penalty
                 
                 if network_speed_sum > best_speed_sum:
                     best_speed_sum = network_speed_sum

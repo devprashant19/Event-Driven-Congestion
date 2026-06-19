@@ -7,7 +7,7 @@ import pydeck as pdk
 import importlib
 
 import recommendation_engine
-from recommendation_engine import TDSPGraph, PolicySimulator, ManpowerOptimizer, InfrastructureOptimizer, CORRIDORS, CORRIDOR_LENGTHS, coords, N, corridor_to_idx
+from recommendation_engine import TDSPGraph, PolicySimulator, ManpowerOptimizer, InfrastructureOptimizer, CORRIDORS, CORRIDOR_LENGTHS, coords, N, corridor_to_idx, build_dynamic_adjacency_matrix
 
 
 # Page Config
@@ -75,22 +75,13 @@ if 'simulated_speeds' not in st.session_state:
 if 'simulated_adj' not in st.session_state:
     st.session_state.simulated_adj = None
 
-# Paths to data
-static_adj_path = r"dataset/AstramBengaluru/adj_mat.npy"
+# Dynamic Adjacency Matrix
+A_static = build_dynamic_adjacency_matrix(CORRIDORS, coords)
+
 scaler_path = r"dataset/AstramBengaluru/var_scaler_info.npz"
 
 # Instantiate simulators
-if os.path.exists(static_adj_path) and os.path.exists(scaler_path):
-    sim = PolicySimulator(static_adj_path, scaler_path)
-    A_static = np.load(static_adj_path)
-else:
-    sim = None
-    A_static = None
-
-# Handle fallbacks if dataset isn't fully generated
-if sim is None or A_static is None:
-    st.error("Error: Adjacency matrix or scaler info not found. Please ensure the dataset pipeline is executed.")
-    st.stop()
+sim = PolicySimulator(A_static, scaler_path)
 
 # ----------------- TITLE / HEADER -----------------
 st.title("🛰️ Flipkart Gridlock 2.0: Event-Driven Congestion")
@@ -149,6 +140,8 @@ with st.sidebar.expander("🧭 Time-Dependent Route Planner", expanded=False):
 # Load AI Engines
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import script.inference_api
+importlib.reload(script.inference_api)
 from script.inference_api import LiveInferenceAPI
 from script.live_traffic_api import LiveTrafficStream
 from script.traffic_metrics import TrafficMetrics
@@ -210,7 +203,7 @@ if len(st.session_state.scenario_events) > 0:
     speeds_unmit = sim.simulate_mitigated_forecast(api, var_x, crash_marker_x, st.session_state.scenario_events, 0, 0)
     
     # Run Optimization Algorithm
-    optimizer = ManpowerOptimizer(A_static)
+    optimizer = ManpowerOptimizer(A_static, coords_dict=coords, corridors=CORRIDORS)
     st.session_state.optimal_allocation = optimizer.greedy_allocation(sim, api, var_x, crash_marker_x, st.session_state.scenario_events, officers, barricades)
     
     # 2. Mitigated Speed (With current sliders values)

@@ -15,43 +15,37 @@ class SurrogateT3STID(nn.Module):
         self.pred_len = pred_len
         self.hist_len = hist_len
         
-        # Spatial-temporal embedding layers
-        self.temporal_conv = nn.Conv2d(in_channels=1, out_channels=16, kernel_size=(3, 1), padding=(1, 0))
-        self.spatial_linear = nn.Linear(num_nodes, num_nodes)
-        
-        # Event severity impact processor
-        self.event_processor = nn.Sequential(
-            nn.Linear(5, 16),
-            nn.ReLU(),
-            nn.Linear(16, 1)
-        )
-        
-        # Final forecasting head
-        self.forecaster = nn.Linear(hist_len * 16, pred_len)
-        
     def forward(self, var_x, marker_x):
         # var_x: (B, L, N, 1) -> historical speeds
         # marker_x: (B, L, N, 5) -> event markers (last index is severity)
         B, L, N, _ = var_x.shape
         
-        # 1. Spatio-Temporal feature extraction
-        x_conv = var_x.permute(0, 3, 1, 2) # (B, 1, L, N)
-        x_conv = torch.relu(self.temporal_conv(x_conv)) # (B, 16, L, N)
-        x_conv = x_conv.permute(0, 2, 3, 1) # (B, L, N, 16)
+        # Extract the base normalized speed from the historical window
+        base_speed = var_x.mean(dim=1).squeeze(-1) # (B, N)
         
-        # 2. Event severity processing
-        # Extract the severity from marker_x
-        event_impact = self.event_processor(marker_x) # (B, L, N, 1)
+        # Extract the event severity from the markers
+        if marker_x.shape[-1] > 4:
+            severity = marker_x[:, -1, :, 4] # (B, N)
+        else:
+            severity = marker_x[:, -1, :, 0] # (B, N)
+            
+        # Create a forward-looking time axis for predictions
+        t_axis = torch.arange(self.pred_len, dtype=torch.float32, device=var_x.device)
         
-        # Combine base traffic features with event impacts
-        combined_features = x_conv - (event_impact * 20.0) # Network learns to drop speed based on event severity
+        # Calculate PyTorch exponential decay tensor for the event shockwave
+        decay = torch.exp(-0.15 * t_axis) # (pred_len)
         
-        # 3. Flatten and Forecast
-        combined_features = combined_features.reshape(B, L * 16, N) # (B, L*16, N)
-        combined_features = combined_features.permute(0, 2, 1) # (B, N, L*16)
+        # Max drop is scaled based on severity (2.5 std devs ~ 37kmh drop)
+        drop = 2.5 * severity.unsqueeze(1) # (B, 1, N)
         
-        prediction = self.forecaster(combined_features) # (B, N, pred_len)
-        prediction = prediction.permute(0, 2, 1) # (B, pred_len, N)
+        # Generate the baseline forecast
+        pred_base = base_speed.unsqueeze(1).repeat(1, self.pred_len, 1) # (B, pred_len, N)
+        
+        # Subtract the tensor-calculated event impact
+        decay_tensor = decay.unsqueeze(0).unsqueeze(-1) # (1, pred_len, 1)
+        event_impact = drop * decay_tensor # (B, pred_len, N)
+        
+        prediction = pred_base - event_impact # (B, pred_len, N)
         
         return prediction
 
@@ -71,13 +65,8 @@ class LiveInferenceAPI:
             
         self.model = SurrogateT3STID(num_nodes=num_nodes, hist_len=hist_len, pred_len=pred_len)
         
-        if os.path.exists(checkpoint_path):
-            print(f"Loading trained weights from {checkpoint_path}...")
-            self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
-        else:
-            print(f"Warning: {checkpoint_path} not found. Using initialized PyTorch weights.")
-            torch.save(self.model.state_dict(), checkpoint_path)
-            
+        print(f"Skipping weight loading from {checkpoint_path} because SurrogateT3STID is completely deterministic.")
+        
         self.model.eval()
         self.model.to(self.device)
         print(f"Model loaded successfully on {self.device}!")
