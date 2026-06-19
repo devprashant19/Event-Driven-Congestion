@@ -565,7 +565,8 @@ with tab1:
                     "events": st.session_state.scenario_events,
                     "officers_deployed": sum(st.session_state.optimal_allocation.values()) if "optimal_allocation" in st.session_state else 0,
                     "barricades": sum([c for _, c in infra_plan["barricades"]]) if infra_plan and "barricades" in infra_plan else 0,
-                    "timestamp": time.strftime("%Y-%m-%d %H:%M"),
+                    "speeds_mit": speeds_mit.tolist(),
+                    "timestamp": time.strftime('%Y-%m-%d %H:%M'),
                     "pred_unmitigated": speeds_unmit[:, first_c_idx].tolist() if speeds_unmit is not None else [],
                     "actual_mitigated": speeds_mit[:, first_c_idx].tolist() if speeds_mit is not None else []
                 }
@@ -610,7 +611,10 @@ with tab2:
             
             st.markdown("---")
             if st.button("🧠 Append to Training Dataset"):
-                st.success("Event Data appended to `dataset/AstramBengaluru/` for retraining!")
+                import subprocess
+                import sys
+                subprocess.Popen([sys.executable, "script/append_retrain.py", "--event_id", str(evt_data["id"])])
+                st.success("Event Data queued for ingestion! Background retraining job started.")
                 
         with analysis_col2:
             st.subheader("Predicted vs Actual Congestion Comparison")
