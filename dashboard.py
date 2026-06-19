@@ -2,12 +2,10 @@ import os
 import numpy as np
 import pandas as pd
 import streamlit as st
-import pydeck as pdk
+import json
 import importlib
 
-# Force reload the module so Streamlit doesn't use the old cached version
 import recommendation_engine
-importlib.reload(recommendation_engine)
 from recommendation_engine import TDSPGraph, PolicySimulator, ManpowerOptimizer, InfrastructureOptimizer, CORRIDORS, CORRIDOR_LENGTHS, coords, N, corridor_to_idx
 
 
@@ -159,7 +157,7 @@ from script.anomaly_detector import AnomalyDetector
 def load_ai_engines():
     import glob
     # Search for the latest checkpoint dynamically instead of hardcoding
-    search_path = "save/STIDEF_AstramBengaluru/*/seed_0/checkpoints/*.ckpt"
+    search_path = os.getenv("MODEL_CHECKPOINT_DIR", "save/STIDEF_AstramBengaluru/*/seed_0/checkpoints/*.ckpt")
     checkpoints = glob.glob(search_path)
     if not checkpoints:
         return None, None, None
@@ -559,10 +557,9 @@ with tab1:
         if len(st.session_state.scenario_events) > 0:
             if st.button("💾 Save Scenario to Historical Database"):
                 import time
-                import json
                 new_event = {
                     "id": int(time.time()),
-                    "name": f"{len(st.session_state.scenario_events)} Events at {time.strftime("%Y-%m-%d %H:%M")}",
+                    "name": f"{len(st.session_state.scenario_events)} Events at {time.strftime('%Y-%m-%d %H:%M')}",
                     "events": st.session_state.scenario_events,
                     "officers_deployed": sum(st.session_state.optimal_allocation.values()) if "optimal_allocation" in st.session_state else 0,
                     "barricades": sum([c for _, c in infra_plan["barricades"]]) if infra_plan and "barricades" in infra_plan else 0,
@@ -603,8 +600,8 @@ with tab2:
             
             st.markdown("---")
             st.markdown("#### Intervention Report")
-            st.info(f"👮 Officers Deployed: **{evt_data["officers_deployed"]}**")
-            st.info(f"🚧 Barricades Deployed: **{evt_data["barricades"]}**")
+            st.info(f"👮 Officers Deployed: **{evt_data['officers_deployed']}**")
+            st.info(f"🚧 Barricades Deployed: **{evt_data['barricades']}**")
             st.success("✅ AI Accuracy Score: **92.5%** (Calculated via STIDEF)")
             
             st.markdown("---")

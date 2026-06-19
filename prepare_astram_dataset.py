@@ -230,10 +230,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", action="store_true", help="Run in test mode with short dataset")
     parser.add_argument("--traffic_csv", type=str, default=None, help="Optional: Path to raw historical traffic data")
+    parser.add_argument("--event_csv", type=str, default=r"dataset/Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv", help="Path to Astram event dataset CSV")
     args = parser.parse_args()
 
     print("--- Starting prepare_astram_dataset.py ---")
-    event_csv_path = r"dataset/Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv"
+    event_csv_path = args.event_csv
     if not os.path.exists(event_csv_path):
         raise FileNotFoundError(f"Astram event dataset CSV not found at: {event_csv_path}")
 

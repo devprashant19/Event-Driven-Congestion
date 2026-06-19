@@ -11,11 +11,8 @@ try:
         CORRIDORS = network_data["CORRIDORS"]
         CORRIDOR_LENGTHS = network_data["CORRIDOR_LENGTHS"]
         coords = network_data["coords"]
-except FileNotFoundError:
-    print("Warning: data/city_network.json not found. Falling back to default empty structures.")
-    CORRIDORS = []
-    CORRIDOR_LENGTHS = {}
-    coords = {}
+except FileNotFoundError as e:
+    raise FileNotFoundError("Critical: data/city_network.json is required to run the network routing.") from e
 
 N = len(CORRIDORS)
 corridor_to_idx = {c: i for i, c in enumerate(CORRIDORS)}
