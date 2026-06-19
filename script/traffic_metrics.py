@@ -71,6 +71,26 @@ class TrafficMetrics:
         
         return queue_km, queue_vehicles
 
+    def calculate_economic_impact(self, queue_vehicles, delay_mins):
+        """
+        Calculates the economic cost of the delay.
+        Takes arrays for queue_vehicles and delay_mins.
+        Assumes an average cost of $0.50 per vehicle per minute of delay.
+        """
+        # Cost = Sum of (Vehicles in Queue on Corridor * Delay on Corridor * $0.50)
+        cost = float(np.sum(queue_vehicles * delay_mins * 0.50))
+        return cost
+
+    def calculate_environmental_impact(self, queue_vehicles, delay_mins):
+        """
+        Calculates excess CO2 emissions in kg.
+        Takes arrays for queue_vehicles and delay_mins.
+        Assumes an idling vehicle emits ~0.023 kg of CO2 per minute (realistic average).
+        """
+        # Emissions = Sum of (Vehicles in Queue on Corridor * Delay on Corridor * 0.023 kg)
+        co2_kg = float(np.sum(queue_vehicles * delay_mins * 0.023))
+        return co2_kg
+
 if __name__ == "__main__":
     # Quick unit test
     metrics = TrafficMetrics(v_free=50.0)
