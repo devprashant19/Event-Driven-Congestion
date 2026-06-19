@@ -152,7 +152,7 @@ from script.traffic_metrics import TrafficMetrics
 from script.anomaly_detector import AnomalyDetector
 
 @st.cache_resource
-def load_ai_models():
+def load_ai_models_v2():
     import glob
     # Search for the latest checkpoint dynamically instead of hardcoding
     city_id = os.getenv("CITY_ID", "AstramBengaluru")
@@ -169,7 +169,7 @@ def load_ai_models():
     anomaly = AnomalyDetector()
     return api, metrics, anomaly
 
-api, metrics, anomaly_detector = load_ai_models()
+api, metrics, anomaly_detector = load_ai_models_v2()
 
 if api is None:
     st.error("Error: LiveInferenceAPI Checkpoint not found. Please ensure the model is trained.")
@@ -588,13 +588,34 @@ with tab1:
             st.write("Awaiting event injection...")
     
     if len(st.session_state.scenario_events) > 0:
-        for evt in st.session_state.scenario_events:
-            evt_c_idx = evt["c_idx"]
-            impacts = anomaly_detector.calculate_impact_radius(severity_mit, origin_corridors=[evt_c_idx])
-            if impacts:
-                st.markdown(f"**Predicted Impact Radius (Spillover from {evt['corridor']}):**")
-                for c_idx, sev in impacts:
-                    st.error(f"⚠️ {CORRIDORS[c_idx]} (Max {sev:.1f}% severity)")
+        st.markdown("#### 🌍 Advanced Impact & Economic Analysis")
+        
+        # Calculate unmitigated vs mitigated queue lengths and delays
+        _, queue_unmit = metrics.calculate_queue_length(speeds_unmit[selected_t])
+        _, queue_mit = metrics.calculate_queue_length(speeds_mit[selected_t])
+        
+        _, delay_unmit_arr = metrics.calculate_metrics(speeds_unmit[selected_t])
+        _, delay_mit_arr = metrics.calculate_metrics(speeds_mit[selected_t])
+        
+        # Calculate Economic & Environmental Impact
+        cost_unmit = float(np.sum(metrics.calculate_economic_impact(queue_unmit, delay_unmit_arr)))
+        cost_mit = float(np.sum(metrics.calculate_economic_impact(queue_mit, delay_mit_arr)))
+        cost_saved = cost_unmit - cost_mit
+        
+        co2_unmit = float(np.sum(metrics.calculate_environmental_impact(queue_unmit, delay_unmit_arr)))
+        co2_mit = float(np.sum(metrics.calculate_environmental_impact(queue_mit, delay_mit_arr)))
+        co2_saved = co2_unmit - co2_mit
+
+        impact_col1, impact_col2 = st.columns(2)
+        with impact_col1:
+            st.error(f"💸 **Economic Impact**: ${cost_mit:,.2f} lost")
+            if cost_saved > 0:
+                st.success(f"**Saved by Intervention**: ${cost_saved:,.2f}")
+                
+        with impact_col2:
+            st.error(f"☁️ **CO2 Emissions**: {co2_mit:,.1f} kg")
+            if co2_saved > 0:
+                st.success(f"**Emissions Prevented**: {co2_saved:,.1f} kg")
 
 
         st.markdown("---")
