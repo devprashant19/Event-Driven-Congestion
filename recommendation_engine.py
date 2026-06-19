@@ -325,7 +325,8 @@ class InfrastructureOptimizer:
         """
         plan = {
             "barricades": [],
-            "signals": []
+            "signals": [],
+            "cctv_nodes": []
         }
         
         if num_barricades > 0:
@@ -363,6 +364,24 @@ class InfrastructureOptimizer:
                 unique_diversion_nodes.remove(origin_c_idx)
             
         plan["signals"] = list(unique_diversion_nodes)
+        
+        # 3. Intersection Monitoring Alerts (CCTV)
+        # We need to flag intersections that need active CCTV monitoring.
+        # This includes the origin crashes and their immediate neighbors.
+        # We prioritize neighbors that DID NOT get barricades to actively monitor the unmitigated spillover.
+        cctv_set = set()
+        barricaded_nodes = {n for n, c in plan["barricades"]}
+        
+        for evt in scenario_events:
+            origin_c_idx = evt["c_idx"]
+            cctv_set.add(origin_c_idx)
+            # Find neighbors experiencing spillover
+            neighbors = np.where(self.A_static[:, origin_c_idx] > 0.1)[0]
+            for n_idx in neighbors:
+                if n_idx not in barricaded_nodes:
+                    cctv_set.add(n_idx)
+                    
+        plan["cctv_nodes"] = list(cctv_set)
         
         return plan
 

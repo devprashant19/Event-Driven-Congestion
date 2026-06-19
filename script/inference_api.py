@@ -35,8 +35,20 @@ class SurrogateT3STID(nn.Module):
         # Calculate PyTorch exponential decay tensor for the event shockwave
         decay = torch.exp(-0.15 * t_axis) # (pred_len)
         
-        # Max drop is scaled based on severity (2.5 std devs ~ 37kmh drop)
-        drop = 2.5 * severity.unsqueeze(1) # (B, 1, N)
+        # External Data Integration (Weather, Holidays, School)
+        if marker_x.shape[-1] == 8:
+            rain = marker_x[:, -1, :, 5] # (B, N)
+            holiday = marker_x[:, -1, :, 6] # (B, N)
+            school_closed = marker_x[:, -1, :, 7] # (B, N)
+            
+            # Physics rule: Rain amplifies congestion severity. Holidays & closed schools dampen it.
+            external_factor = 1.0 + (0.3 * rain) - (0.1 * holiday) - (0.1 * school_closed)
+            drop = 2.5 * severity * external_factor
+        else:
+            # Max drop is scaled based on severity (2.5 std devs ~ 37kmh drop)
+            drop = 2.5 * severity
+            
+        drop = drop.unsqueeze(1) # (B, 1, N)
         
         # Generate the baseline forecast
         pred_base = base_speed.unsqueeze(1).repeat(1, self.pred_len, 1) # (B, pred_len, N)

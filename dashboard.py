@@ -579,6 +579,11 @@ with tab1:
                 st.markdown("**🚦 Signal Overrides (+30s Green Phase)**:")
                 signal_corridors = [f"**{CORRIDORS[n]}**" for n in infra_plan["signals"]]
                 st.success(f"{', '.join(signal_corridors)}")
+                
+            if "cctv_nodes" in infra_plan and infra_plan["cctv_nodes"]:
+                st.markdown("**📹 Active CCTV Monitoring (High-Risk)**:")
+                cctv_corridors = [f"**{CORRIDORS[n]}**" for n in infra_plan["cctv_nodes"]]
+                st.warning(f"Monitor unmitigated shockwaves at: {', '.join(cctv_corridors)}")
         else:
             st.write("Awaiting event injection...")
     

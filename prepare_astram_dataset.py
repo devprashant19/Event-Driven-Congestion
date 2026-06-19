@@ -196,7 +196,14 @@ class TrafficDataPipeline:
         
         norm_var = (self.V_final - mean_speed) / std_speed
         
-        norm_time_marker = np.zeros((self.T, 5))
+        # Ensure consistent synthetic environmental factors
+        np.random.seed(42)
+        # Rain days: 10% chance
+        is_rain_day = np.random.rand(365) < 0.1
+        # Holidays: 10 random days
+        holiday_days = np.random.choice(365, 10, replace=False)
+
+        norm_time_marker = np.zeros((self.T, 8))
         for t in range(self.T):
             t_day = t % self.steps_per_day
             dow = (t // self.steps_per_day) % 7
@@ -208,6 +215,14 @@ class TrafficDataPipeline:
             norm_time_marker[t, 2] = dom / 29.0
             norm_time_marker[t, 3] = doy / 364.0
             norm_time_marker[t, 4] = np.mean(self.eod_counts[t]) / 3.0
+            
+            # External Factors
+            norm_time_marker[t, 5] = 1.0 if is_rain_day[doy] else 0.0 # Rain
+            is_holiday = doy in holiday_days
+            norm_time_marker[t, 6] = 1.0 if is_holiday else 0.0 # Holiday
+            # School is closed on weekends (dow 5, 6) or holidays
+            is_school_closed = (dow in [5, 6]) or is_holiday
+            norm_time_marker[t, 7] = 1.0 if is_school_closed else 0.0 # School Closed
 
         os.makedirs(self.output_dir, exist_ok=True)
 
