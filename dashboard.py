@@ -446,8 +446,8 @@ sim = PolicySimulator(A_static, scaler_path)
 st.markdown("""
 <div class="dashboard-header">
     <div>
-        <div class="dashboard-title">🛰️ Event Driven Congestion</div>
-        <div class="dashboard-subtitle">Zero-Gravity Mission Control • Traffic Decision Support System</div>
+        <div class="dashboard-title">🛰️ TraffiSight AI</div>
+        <div class="dashboard-subtitle">Visualizing congestion. Enabling action.</div>
     </div>
     <div style="display: flex; gap: 1rem; align-items: center;">
         <div class="live-indicator">
@@ -1372,9 +1372,9 @@ with tab2:
 st.markdown("""
 <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0 0.5rem 0; color: #64748B; font-size: 11px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 1.5rem;">
     <div>
-        <span style="font-weight: 1000; color: #94A3B8;">🛰️ Flipkart Gridlock 2.0</span> 
+        <span style="font-weight: 1000; color: #94A3B8;">🛰️ TraffiSight AI</span> 
         <span style="margin: 0 0.5rem;">|</span> 
-        Traffic Decision Support System
+        Visualizing congestion. Enabling action.
     </div>
     <div>© 2026 Flipkart • Advanced Analytics Division</div>
 </div>
