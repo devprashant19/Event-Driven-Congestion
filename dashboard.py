@@ -558,7 +558,7 @@ def load_ai_models_v2():
 api, metrics, anomaly_detector = load_ai_models_v2()
 
 if api is None:
-    st.error("""
+    st.markdown("""
     <div style="text-align: center; padding: 2rem;">
         <div style="font-size: 48px; margin-bottom: 1rem;">⚠️</div>
         <div style="font-size: 20px; font-weight: 600; color: #EF4444;">Model Checkpoint Not Found</div>
